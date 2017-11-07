@@ -1,0 +1,68 @@
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create ELB
+Mappings:
+ Params:
+   ElbName:
+     dev: spencer-elb-dev
+     qa: spencer-elb-qa
+   Subnets:
+     dev:
+       - subnet-a4d97a9b
+       - subnet-4c09e263
+       - subnet-9c7cf3f8
+     qa:
+       - subnet-a4d97a9b
+       - subnet-4c09e263
+       - subnet-9c7cf3f8
+   SecurityGroups:
+     dev:
+       - sg-7858050a
+     qa:
+       - sg-7858050a
+   SSLCertificateId:
+     dev: arn:aws:acm:us-east-1:200957735534:certificate/d35b9603-a5e3-49ad-b8a9-af7339907cd7
+     qa: arn:aws:acm:us-east-1:200957735534:certificate/d35b9603-a5e3-49ad-b8a9-af7339907cd7
+   Environment:
+     dev: dev
+     qa: qa
+Parameters:
+ ELBEnvironment:
+   Description: Environment type.
+   Default: dev
+   Type: String
+   AllowedValues:
+     - dev
+     - qa
+   ConstraintDescription: must specify environment.
+ ApplicationName:
+   Type: String
+   Description: Application Name
+   Default: spencer-app
+Resources:
+ ResourceELB:
+   Type: AWS::ElasticLoadBalancing::LoadBalancer
+   Properties:
+     LoadBalancerName : !FindInMap [Params, ElbName, !Ref "ELBEnvironment"]
+     Tags:
+       - Key: Name
+         Value: !FindInMap [Params, ElbName, !Ref "ELBEnvironment"]
+       - Key: ApplicationName
+         Value: !Ref ApplicationName
+       - Key: Environment
+         Value: !FindInMap [Params, Environment, !Ref "ELBEnvironment"]
+     Subnets: !FindInMap [Params, Subnets, !Ref "ELBEnvironment"]
+     SecurityGroups: !FindInMap [Params, SecurityGroups, !Ref "ELBEnvironment"]
+     Scheme: internal
+     Listeners:
+       - Protocol: HTTPS
+         LoadBalancerPort: 443
+         InstanceProtocol: HTTP
+         InstancePort: 8080
+         SSLCertificateId: !FindInMap [Params, SSLCertificateId, !Ref "ELBEnvironment"]
+     HealthCheck:
+       Target: http:8080/success.html
+       Interval: 20
+       Timeout: 5
+       HealthyThreshold: 2
+       UnhealthyThreshold: 9

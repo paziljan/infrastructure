@@ -1,0 +1,112 @@
+
+AWSTemplateFormatVersion: 2010-09-09
+Description: ASG for spencer app
+Mappings:
+ Params:
+   TagName:
+     dev: spencer-asg-dev
+     qa:  spencer-asg-qa
+   AvailabilityZones:
+     dev:
+       - us-east-1c
+       - us-east-1b
+       - us-east-1e
+     qa:
+       - us-east-1c
+       - us-east-1b
+       - us-east-1e
+   ElbName:
+     dev: spencer-elb-dev
+     qa: spencer-elb-qa
+   ApplicationName:
+     dev: spencer-app
+     qa: spencer-app
+   AMIID:
+     dev: ami-d3913ba9
+     qa: ami-d3913ba9
+   IAMRoleARN:
+     dev: ec2-spencerapp-role
+     qa: ec2-spencerapp-role
+
+   SecurityGroups:
+     dev:
+       - sg-f4237e86
+     qa:
+       - sg-f4237e86
+   Subnets:
+     dev:
+       - subnet-4c09e263
+       - subnet-9c7cf3f8
+       - subnet-a4d97a9b
+     qa:
+       - subnet-4c09e263
+       - subnet-9c7cf3f8
+       - subnet-a4d97a9b
+   UserData:
+     dev:
+       - "#!/usr/bin/env bash"
+     qa:
+       - "#!/usr/bin/env bash"
+Parameters:
+ ASGEnvironment:
+   Description: Environment type.
+   Default: dev
+   Type: String
+   AllowedValues:
+     - dev
+     - qa
+   ConstraintDescription: must specify environment.
+ InstanceType:
+   Type: String
+   Description: EC2 instance type
+   Default: t2.small
+ ApplicationName:
+   Type: String
+   Description: ASV tag value
+   Default: spencer-app
+ ASGEnvironment:
+   Type: String
+   Description: Environment for app
+   Default: dev
+Resources:
+ ResourceASG:
+   Type: AWS::AutoScaling::AutoScalingGroup
+   Properties:
+     Tags:
+       - Key: Name
+         Value: !FindInMap [Params, TagName, !Ref "ASGEnvironment"]
+         PropagateAtLaunch: true
+       - Key: ApplicationName
+         Value: !Ref ApplicationName
+         PropagateAtLaunch: true
+       - Key: Environment
+         Value: !Ref ASGEnvironment
+         PropagateAtLaunch: true
+     VPCZoneIdentifier: !FindInMap [Params, Subnets, !Ref "ASGEnvironment"]
+     AvailabilityZones: !FindInMap [Params, AvailabilityZones, !Ref "ASGEnvironment"]
+     LaunchConfigurationName: !Ref ResourceASGLaunchConfig
+     LoadBalancerNames:
+       - !FindInMap [Params, ElbName, !Ref "ASGEnvironment"]
+     MinSize: 2
+     MaxSize: 5
+     DesiredCapacity: 2
+     HealthCheckType: EC2
+     HealthCheckGracePeriod: 1200
+   UpdatePolicy:
+     AutoScalingRollingUpdate:
+       MinInstancesInService: 1
+       MaxBatchSize: 1
+       PauseTime: PT5M
+ ResourceASGLaunchConfig:
+   Type: AWS::AutoScaling::LaunchConfiguration
+   Properties:
+     InstanceType: !Ref InstanceType
+     ImageId: !FindInMap [Params, AMIID, !Ref "ASGEnvironment"]
+     SecurityGroups: !FindInMap [Params, SecurityGroups, !Ref "ASGEnvironment"]
+     AssociatePublicIpAddress: False
+     UserData:
+       Fn::Base64:
+         Fn::Join:
+           - "\n"
+           -
+             !FindInMap [Params, UserData, !Ref "ASGEnvironment"]

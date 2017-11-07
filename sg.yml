@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Security Group Stack"
+Parameters:
+ vpcId:
+   Type: String
+   Description: Name of VPC
+Resources:
+  elbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName : elb-sg
+      GroupDescription: Allow https for ELB,8080 for app
+      VpcId:
+        Ref: vpcId
+  appSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName : app-sg
+      GroupDescription: Allow elb and access DB
+      VpcId:
+        Ref: vpcId
+  dbSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName : db-sg
+      GroupDescription: Allow http to client host
+      VpcId:
+        Ref: vpcId
+
+  elbSGIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref elbSG
+      IpProtocol: tcp
+      FromPort: '443'
+      ToPort: '443'
+      CidrIp: 0.0.0.0/0
+
+  appSGIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref appSG
+      IpProtocol: tcp
+      FromPort: '8080'
+      ToPort: '8080'
+      SourceSecurityGroupId: !Ref elbSG
+
+  dbSGIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref dbSG
+      IpProtocol: tcp
+      FromPort: '3306'
+      ToPort: '3306'
+      SourceSecurityGroupId: !Ref appSG
+
+  elbSGEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      IpProtocol: tcp
+      FromPort: '8080'
+      ToPort: '8080'
+      GroupId: !Ref elbSG
+      DestinationSecurityGroupId: !Ref appSG
+
+  appSGEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      IpProtocol: tcp
+      FromPort: '3306'
+      ToPort: '3306'
+      GroupId: !Ref appSG
+      DestinationSecurityGroupId: !Ref dbSG
